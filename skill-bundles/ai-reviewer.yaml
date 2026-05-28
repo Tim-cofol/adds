@@ -1,0 +1,10 @@
+id: ai-reviewer
+version: 1.0.0
+description: Skill bundle for reviewer profile — code review, risk assessment.
+roles:
+  - code_review
+  - risk_assessment
+skills:
+  - github-code-review
+  - requesting-code-review
+  - kanban-worker

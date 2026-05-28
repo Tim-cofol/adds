@@ -1,0 +1,13 @@
+id: ai-dev-claude
+version: 1.0.0
+description: Skill bundle for dev-claude profile — complex implementation, integration, TDD.
+roles:
+  - complex_implementation
+  - integration
+  - tdd
+skills:
+  - claude-code
+  - test-driven-development
+  - github-pr-workflow
+  - kanban-worker
+  - systematic-debugging

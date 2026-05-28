@@ -1,0 +1,414 @@
+id: dev-feature-v1
+version: 1.1.0
+description: Deterministic feature development workflow from GitHub issue to PR.
+
+inputs:
+  repo:
+    type: path
+    required: true
+    description: Local repo path.
+  issue:
+    type: string
+    required: true
+    description: GitHub issue number or issue URL.
+  base_branch:
+    type: string
+    required: false
+    default: main
+  branch_prefix:
+    type: string
+    required: false
+    default: ai/dev-feature
+  board:
+    type: string
+    required: false
+    default: default
+  tenant:
+    type: string
+    required: false
+    default: default
+
+runtime:
+  board: "{board}"
+  tenant: "{tenant}"
+  idempotency:
+    strategy: source_workflow_version
+
+entry:
+  assignee: orchestrator
+  skills:
+    - workflow-orchestrator
+    - kanban-orchestrator
+
+nodes:
+  - id: clarify
+    title: "Clarify issue #{issue}"
+    assignee: orchestrator
+    parents: []
+    skills:
+      - kanban-orchestrator
+    workspace:
+      type: dir
+      repo: "{repo}"
+      path: "{repo}"
+    body: |
+      Clarify the goal, non-goals, acceptance criteria, risks and task split for issue #{issue}.
+      Repo: {repo}
+
+      Output must include:
+      - goal
+      - non_goals
+      - acceptance_criteria
+      - risk_points
+      - implementation_split
+      - suggested_complex_scope
+      - suggested_simple_scope
+    output_contract:
+      type: object
+      required:
+        - goal
+        - non_goals
+        - acceptance_criteria
+        - risk_points
+        - implementation_split
+      properties:
+        goal:
+          type: string
+        non_goals:
+          type: array
+          items:
+            type: string
+        acceptance_criteria:
+          type: array
+          items:
+            type: string
+        risk_points:
+          type: array
+          items:
+            type: string
+        implementation_split:
+          type: array
+          items:
+            type: string
+        suggested_complex_scope:
+          type: array
+          items:
+            type: string
+        suggested_simple_scope:
+          type: array
+          items:
+            type: string
+
+  - id: complex_impl
+    title: "Complex implementation for issue #{issue}"
+    assignee: dev-claude
+    parents:
+      - clarify
+    workspace:
+      type: worktree
+      repo: "{repo}"
+      base: "{base_branch}"
+      branch: "{branch_prefix}/issue-{issue}/complex_impl"
+      path: ".hermes/worktrees/{workflow_run_id}/complex_impl"
+      clean_required: true
+      preserve_after_done: true
+    skills:
+      - claude-code
+      - test-driven-development
+    body: |
+      Implement architecture-sensitive or multi-file changes for issue #{issue}.
+      Read parent handoff from clarify first.
+      Work only in the assigned git worktree and branch.
+
+      Do not modify security-sensitive files unless explicitly required by clarify handoff.
+      Keep the changed-line impact around 1000 lines; split if larger.
+
+      Completion requires:
+      - implementation_branch
+      - changed_files
+      - tests_added
+      - verification
+      - residual_risk
+    output_contract:
+      type: object
+      required:
+        - implementation_branch
+        - changed_files
+        - verification
+        - residual_risk
+      properties:
+        implementation_branch:
+          type: string
+        changed_files:
+          type: array
+          items:
+            type: string
+        tests_added:
+          type: array
+          items:
+            type: string
+        verification:
+          type: array
+          items:
+            type: string
+        residual_risk:
+          type: array
+          items:
+            type: string
+    task_size_limit:
+      changed_lines_hint: 1000
+
+  - id: simple_impl
+    title: "Simple bounded fixes for issue #{issue}"
+    assignee: dev-codex
+    parents:
+      - clarify
+    workspace:
+      type: worktree
+      repo: "{repo}"
+      base: "{base_branch}"
+      branch: "{branch_prefix}/issue-{issue}/simple_impl"
+      path: ".hermes/worktrees/{workflow_run_id}/simple_impl"
+      clean_required: true
+      preserve_after_done: true
+    skills:
+      - codex
+      - kanban-codex-lane
+      - test-driven-development
+    body: |
+      Handle simple, bounded or batch changes for issue #{issue}.
+      Use Codex only as an isolated implementation lane.
+      Work only in the assigned git worktree and branch.
+
+      Do not modify security-sensitive files unless explicitly required by clarify handoff.
+      Do not use dangerous bypass flags by default.
+
+      Completion requires:
+      - implementation_branch
+      - changed_files
+      - verification
+      - residual_risk
+    output_contract:
+      type: object
+      required:
+        - implementation_branch
+        - changed_files
+        - verification
+        - residual_risk
+      properties:
+        implementation_branch:
+          type: string
+        changed_files:
+          type: array
+          items:
+            type: string
+        verification:
+          type: array
+          items:
+            type: string
+        residual_risk:
+          type: array
+          items:
+            type: string
+    task_size_limit:
+      changed_lines_hint: 1000
+
+  - id: integrate_impl
+    title: "Integrate implementation branches for issue #{issue}"
+    assignee: dev-claude
+    parents:
+      - complex_impl
+      - simple_impl
+    workspace:
+      type: worktree
+      repo: "{repo}"
+      base: "{base_branch}"
+      branch: "{branch_prefix}/issue-{issue}"
+      path: ".hermes/worktrees/{workflow_run_id}/integrate_impl"
+      clean_required: true
+      preserve_after_done: true
+    skills:
+      - test-driven-development
+      - requesting-code-review
+    body: |
+      Read both implementation handoffs.
+      Merge or cherry-pick implementation branches into the integration branch:
+      {branch_prefix}/issue-{issue}
+
+      Resolve conflicts, run relevant tests, and produce a unified diff.
+
+      Completion requires:
+      - integration_branch
+      - merged_branches
+      - conflict_resolution
+      - verification
+      - residual_risk
+    output_contract:
+      type: object
+      required:
+        - integration_branch
+        - merged_branches
+        - verification
+        - residual_risk
+      properties:
+        integration_branch:
+          type: string
+        merged_branches:
+          type: array
+          items:
+            type: string
+        conflict_resolution:
+          type: array
+          items:
+            type: string
+        verification:
+          type: array
+          items:
+            type: string
+        residual_risk:
+          type: array
+          items:
+            type: string
+
+  - id: review
+    title: "Review integrated implementation for issue #{issue}"
+    assignee: reviewer
+    parents:
+      - integrate_impl
+    workspace:
+      type: worktree
+      repo: "{repo}"
+      base: "{base_branch}"
+      branch: "{branch_prefix}/issue-{issue}"
+      path: ".hermes/worktrees/{workflow_run_id}/review"
+      clean_required: true
+      preserve_after_done: true
+    skills:
+      - requesting-code-review
+    review_policy:
+      pass_values:
+        - PASS
+        - PASS_WITH_CHANGES
+      fail_behavior:
+        action: block_current_task
+        create_followup_tasks: true
+        downstream_release: false
+    body: |
+      Review parent handoff from integrate_impl.
+
+      Check:
+      - acceptance criteria from clarify
+      - unified integration branch diff
+      - test coverage and verification evidence
+      - protected path changes
+      - residual risks
+      - whether PR can be safely created
+
+      Decide one of:
+      - PASS
+      - PASS_WITH_CHANGES
+      - FAIL
+
+      If PASS or PASS_WITH_CHANGES:
+      - complete this task with structured metadata.
+
+      If FAIL:
+      - do NOT complete this task.
+      - create requested-change task(s) assigned to the proper implementer.
+      - block this review task with blocking issues.
+      - keep downstream PR task unreleased.
+    output_contract:
+      type: object
+      required:
+        - review_result
+        - blocking_issues
+        - requested_changes
+        - residual_risk
+      properties:
+        review_result:
+          type: string
+          enum:
+            - PASS
+            - PASS_WITH_CHANGES
+            - FAIL
+        blocking_issues:
+          type: array
+          items:
+            type: string
+        requested_changes:
+          type: array
+          items:
+            type: string
+        residual_risk:
+          type: array
+          items:
+            type: string
+
+  - id: pr
+    title: "Create PR and check CI for issue #{issue}"
+    assignee: shipper
+    parents:
+      - review
+    workspace:
+      type: worktree
+      repo: "{repo}"
+      base: "{base_branch}"
+      branch: "{branch_prefix}/issue-{issue}"
+      path: ".hermes/worktrees/{workflow_run_id}/pr"
+      clean_required: true
+      preserve_after_done: true
+    skills:
+      - github-pr-workflow
+    body: |
+      Create a GitHub PR only if review is PASS or PASS_WITH_CHANGES.
+      Use integration branch: {branch_prefix}/issue-{issue}
+      Check CI status.
+      Do not merge automatically.
+      Do not enable auto-merge.
+      Do not push directly to protected branches.
+
+      Completion requires:
+      - branch
+      - pr_url
+      - ci_status
+      - merge_recommendation
+    output_contract:
+      type: object
+      required:
+        - branch
+        - pr_url
+        - ci_status
+        - merge_recommendation
+      properties:
+        branch:
+          type: string
+        pr_url:
+          type: string
+        ci_status:
+          type: string
+        merge_recommendation:
+          type: string
+
+  - id: human_approval
+    title: "Human approval for issue #{issue}"
+    assignee: shipper
+    parents:
+      - pr
+    mode: manual_gate
+    manual_gate:
+      approvers:
+        - tim
+      approval_actions:
+        - kanban_unblock
+        - comment_contains: "/approve"
+      timeout: "7d"
+      on_timeout: block_workflow
+    body: |
+      Human approval required before merge.
+      Review PR URL, CI status and merge recommendation.
+      Do not merge automatically.
+      Keep this task blocked until explicit human approval.
+    output_contract:
+      type: object
+      required: []
+      properties: {}
