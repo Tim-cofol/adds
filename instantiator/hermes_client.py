@@ -134,8 +134,8 @@ class HermesClient:
                 continue  # Direct match
             if fallback and fallback in available_set:
                 continue  # Fallback available
-            if required:
-                missing_required.append(assignee)
+            # Profile not available and no usable fallback — always raise
+            missing_required.append(assignee)
 
         if missing_required:
             raise MissingRequiredProfileError(missing_required)
