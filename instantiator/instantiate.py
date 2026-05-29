@@ -44,7 +44,7 @@ class KanbanClient:
     """Thin wrapper around the Hermes Kanban CLI for task creation."""
 
     def __init__(self, kanban_db: str | None = None) -> None:
-        self._kanban_db = kanban_db
+        pass  # board selection via HERMES_KANBAN_BOARD env var; --db flag does not exist
 
     def create_task(
         self,
@@ -77,10 +77,9 @@ class KanbanClient:
         """
         cmd = ["hermes", "kanban", "create", title, "--assignee", assignee, "--json"]
 
-        if self._kanban_db:
-            cmd.extend(["--db", self._kanban_db])
         if skills:
-            cmd.extend(["--skills", ",".join(skills)])
+            for s in skills:
+                cmd.extend(["--skill", s])
         if parents:
             for p in parents:
                 cmd.extend(["--parent", p])
@@ -113,7 +112,7 @@ class KanbanClient:
 
         try:
             data = json.loads(result.stdout)
-            task_id = data.get("task_id") or data.get("id")
+            task_id = data.get("id")
             if not task_id:
                 raise KanbanCreateError(
                     f"No task_id in hermes kanban create output: {result.stdout[:200]}"
@@ -137,8 +136,6 @@ class KanbanClient:
             "--summary", summary,
             "--metadata", json.dumps(metadata),
         ]
-        if self._kanban_db:
-            cmd.extend(["--db", self._kanban_db])
         try:
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
             if result.returncode != 0:
