@@ -27,6 +27,17 @@ def test_parse_args_malformed_kwarg_raises():
         parse_args(["dev-feature-v1", "reponospace"])
 
 
+def test_parse_args_empty_key_raises():
+    with pytest.raises(CLIValidationError):
+        parse_args(["dev-feature-v1", "=value"])
+
+
+def test_parse_args_value_with_equals_sign_ok():
+    # Values containing = are fine (e.g. base64, URLs)
+    _, inputs = parse_args(["dev-feature-v1", "token=abc=def"])
+    assert inputs["token"] == "abc=def"
+
+
 def test_validate_inputs_happy_path():
     errors = validate_inputs(
         "dev-feature-v1",

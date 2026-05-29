@@ -1,0 +1,11 @@
+id: ai-dev-codex
+version: 1.0.0
+description: Skill bundle for dev-codex profile — simple/batch implementation, Codex lane.
+roles:
+  - simple_implementation
+  - batch_fix
+skills:
+  - codex
+  - kanban-codex-lane
+  - test-driven-development
+  - kanban-worker

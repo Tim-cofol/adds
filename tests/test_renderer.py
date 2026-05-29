@@ -47,6 +47,12 @@ def test_render_node_substitutes_all_fields(renderer):
     assert "wf_abc123" in rendered["workspace"]["path"]
 
 
+def test_render_node_does_not_mutate_original(renderer):
+    node = {"id": "x", "body": "{msg}"}
+    renderer.render_node(node, {"msg": "hi"})
+    assert node["body"] == "{msg}"
+
+
 def test_render_branch_sanitizes_unsafe_chars(renderer):
     node = {
         "id": "x",

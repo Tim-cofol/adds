@@ -1,0 +1,10 @@
+id: ai-shipper
+version: 1.0.0
+description: Skill bundle for shipper profile — GitHub PR creation, CI checks, release.
+roles:
+  - github_pr
+  - ci_check
+  - release_recommendation
+skills:
+  - github-pr-workflow
+  - kanban-worker

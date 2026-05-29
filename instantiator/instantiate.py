@@ -112,7 +112,7 @@ class KanbanClient:
 
         try:
             data = json.loads(result.stdout)
-            task_id = data.get("id")
+            task_id = data.get("task_id") or data.get("id")
             if not task_id:
                 raise KanbanCreateError(
                     f"No task_id in hermes kanban create output: {result.stdout[:200]}"
