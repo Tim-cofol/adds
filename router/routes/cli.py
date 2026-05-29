@@ -175,3 +175,50 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
+# --- simple_impl lightweight helpers (no WorkflowInstantiator dependency) ---
+
+class CliParseError(Exception):
+    """Raised when /wf CLI input cannot be parsed or required params are missing."""
+    pass
+
+
+def parse_wf_args(argv: list[str]) -> tuple[str, dict[str, str]]:
+    """Parse /wf CLI arguments (lightweight variant of parse_args).
+
+    Raises:
+        CliParseError: If workflow_id is missing or a key=value pair is malformed.
+    """
+    if not argv:
+        raise CliParseError("Usage: /wf <workflow_id> [key=value ...]")
+    workflow_id = argv[0]
+    if not workflow_id or workflow_id.startswith("="):
+        raise CliParseError(f"Invalid workflow_id: {workflow_id!r}")
+    params: dict[str, str] = {}
+    for token in argv[1:]:
+        if "=" not in token:
+            raise CliParseError(f"Invalid parameter {token!r} — expected key=value format")
+        key, _, value = token.partition("=")
+        if not key:
+            raise CliParseError(f"Empty key in parameter {token!r}")
+        params[key] = value
+    return workflow_id, params
+
+
+def validate_required_params(
+    workflow_id: str,
+    params: dict[str, str],
+    required_params: list[str],
+) -> list[str]:
+    """Return list of missing required parameter names."""
+    return [p for p in required_params if p not in params or not params[p]]
+
+
+def build_trigger_payload(
+    workflow_id: str,
+    params: dict[str, str],
+    source: str = "cli",
+) -> dict[str, Any]:
+    """Build a normalized trigger payload dict for the Instantiator."""
+    return {"workflow_id": workflow_id, "source": source, "params": params}

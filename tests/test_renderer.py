@@ -67,7 +67,6 @@ def test_render_branch_sanitizes_unsafe_chars(renderer):
     ctx = {"issue": "42", "workflow_run_id": "wf_abc"}
     rendered = renderer.render_node(node, ctx)
     branch = rendered["workspace"]["branch"]
-    # Should not contain spaces or brackets
     assert " " not in branch
     assert "[" not in branch
     assert "]" not in branch
